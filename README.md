@@ -22,7 +22,7 @@ npm install @mirafive/sdk-vue @mirafive/sdk-browser
 # or: bun add / pnpm add / yarn add
 ```
 
-Peers: `vue` ≥ 3.5, `@mirafive/sdk-browser` ^0.5.0. ESM only. On Nuxt use
+Peers: `vue` ≥ 3.5, `@mirafive/sdk-browser` ^1.0.0. ESM only. On Nuxt use
 `@mirafive/sdk-nuxt`, which wires all of this for you.
 
 ## Quickstart

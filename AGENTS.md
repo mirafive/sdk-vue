@@ -35,5 +35,5 @@ bun run size             # size-limit against the limit in package.json (0.8 kB,
 ## Local development
 
 `@mirafive/sdk-browser` is unpublished: `devDependencies` and `overrides` point at
-`file:../sdk-browser` (build its `dist` first). Once 0.5.0 is on npm, switch both to
-`^0.5.0` and drop `overrides`; CI cannot install until then.
+`file:../sdk-browser` (build its `dist` first). Once 1.0.0 is on npm, switch both to
+`^1.0.0` and drop `overrides`; CI cannot install until then.
