@@ -1,7 +1,7 @@
 {
   "name": "@mirafive/sdk-vue",
   "version": "1.0.0",
-  "description": "MIRA FIVE for Vue 3: a plugin and composables for privacy-first analytics and feature flags, SSR-safe.",
+  "description": "MIRA FIVE SDK for Vue",
   "keywords": [
     "ab-testing",
     "analytics",
