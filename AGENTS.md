@@ -36,3 +36,7 @@ bun run size             # size-limit against the limit in package.json (0.8 kB,
 
 `@mirafive/sdk-browser` is an ordinary `^1.0.0` dependency from npm. To try an unreleased change,
 build the sibling repo and `bun link` it; never commit a `file:` path or `overrides`.
+
+## Releasing
+
+To release, bump `version` in `package.json` (and any SDK version constant), add a `## X.Y.Z — YYYY-MM-DD` section to `CHANGELOG.md`, commit, then `git tag vX.Y.Z && git push origin vX.Y.Z`. `.github/workflows/release.yml` checks both, runs `bun run check`, publishes to npm through trusted publishing (no token) and creates the GitHub release from the changelog section. Never `npm publish` from a laptop.
