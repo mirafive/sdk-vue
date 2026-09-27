@@ -21,12 +21,19 @@ const holderKey: InjectionKey<Holder> = Symbol("mirafive")
 // Stands in for the client during a server render, where there is none.
 const inert = new Proxy<Mira>(Object.create(null), {
   get: (_, name) =>
-    name === "flush"
-      ? () => Promise.resolve()
-      : name === "onFlags"
-        ? () => () => {}
-        : (_key: unknown, fallback?: unknown) => fallback
+    // Not a thenable, so `await useMira()` resolves.
+    name === "then"
+      ? undefined
+      : name === "flush"
+        ? () => Promise.resolve()
+        : name === "onFlags"
+          ? () => () => {}
+          : (_key: unknown, fallback?: unknown) => fallback
 })
+
+// sdk-browser ignores a block older than 7 days; so do the renders that must match it.
+const fresh = (bootstrap: FlagBootstrap | undefined): FlagBootstrap | undefined =>
+  bootstrap?.v === 1 && Date.now() - bootstrap.at < 6048e5 ? bootstrap : undefined
 
 const parse = (text: string | null | undefined): FlagBootstrap | undefined => {
   try {
@@ -34,7 +41,7 @@ const parse = (text: string | null | undefined): FlagBootstrap | undefined => {
       text?.[0] === "<" ? text.slice(text.indexOf(">") + 1, text.lastIndexOf("<")) : (text ?? "")
     )
 
-    return bootstrap
+    return fresh(bootstrap)
   } catch {
     return undefined
   }
@@ -54,7 +61,7 @@ export const createMiraPlugin = <Events extends EventMap = EventMap>(
       boot: () =>
         (boot ??= [
           typeof options.bootstrap === "object"
-            ? options.bootstrap
+            ? fresh(options.bootstrap)
             : parse(
                 options.bootstrap ??
                   (typeof document === "undefined"
@@ -84,7 +91,7 @@ const useHolder = (): Holder => {
 /** The client; during a server render a stand-in that does nothing and answers fallbacks. */
 export const useMira = <Events extends EventMap = EventMap>(): Mira<Events> => useHolder().client ?? inert
 
-const flagRef = <T extends Json>(
+const flagRef = <T>(
   key: string,
   fallback: T,
   live: (client: Mira) => T,
@@ -92,7 +99,7 @@ const flagRef = <T extends Json>(
 ): Readonly<Ref<T>> => {
   const { client, boot } = useHolder()
   // A server render and the hydration after it answer the bootstrap, so both render the same.
-  const hydrating = !client || !!getCurrentInstance()?.vnode.el
+  const hydrating = !!getCurrentInstance()?.vnode.el
   const answer = boot()?.values[key]
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- shallowRef's conditional type stays open for a generic T
   const value = shallowRef(client && !hydrating ? live(client) : answer ? booted(answer) : fallback) as Ref<T>
@@ -115,23 +122,17 @@ const flagRef = <T extends Json>(
   return value
 }
 
-/** The variant (`true`/`false` for on/off flags) as a ref that follows flag loads; `fallback` when unknown or of the other kind. */
-export function useFlag(key: string, fallback: boolean): Readonly<Ref<boolean>>
-export function useFlag(key: string, fallback: string): Readonly<Ref<string>>
-export function useFlag(key: string, fallback: string | boolean): Readonly<Ref<string | boolean>> {
-  const pick = (variant: string | boolean): string | boolean =>
-    typeof variant === typeof fallback ? variant : fallback
-
-  return flagRef(
+/** What `mira.flag(key, fallback)` answers, as a ref that follows flag loads: the variant, or `true`/`false` for an on/off flag. */
+export const useFlag = (key: string, fallback: string | boolean): Readonly<Ref<string | boolean>> =>
+  flagRef<string | boolean>(
     key,
     fallback,
-    (client) => pick(client.flag(key, fallback)),
-    ([variant]) => pick(variant === "on" || (variant !== "off" && variant))
+    (client) => client.flag(key, fallback),
+    ([variant]) => variant === "on" || (variant !== "off" && variant)
   )
-}
 
-/** The variant's remote-config value as a ref that follows flag loads. */
-export const useFlagConfig = <T extends Json>(key: string, fallback: T): Readonly<Ref<T>> =>
+/** What `mira.config(key, fallback)` answers, as a ref that follows flag loads. */
+export const useFlagConfig = <T = Json>(key: string, fallback: T): Readonly<Ref<T>> =>
   flagRef(
     key,
     fallback,

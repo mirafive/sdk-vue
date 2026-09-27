@@ -3,7 +3,7 @@ import { createMira } from "@mirafive/sdk-browser"
 import { flags } from "@mirafive/sdk-browser/flags"
 import { renderToString } from "@vue/server-renderer"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { createApp, createSSRApp, defineComponent, h, nextTick } from "vue"
+import { createApp, createSSRApp, defineComponent, effectScope, h, nextTick } from "vue"
 
 import { createMiraPlugin, useFlag, useFlagConfig, useMira } from "../src/index.ts"
 
@@ -106,6 +106,41 @@ describe("server render and hydration", () => {
     app.unmount()
   })
 
+  it("answers what sdk-browser answers: a variant even for a boolean fallback", async () => {
+    const values = { "new-checkout": ["b"], hero: ["on"] } as const
+    const html = await renderToString(
+      createSSRApp(Probe).use(createMiraPlugin(undefined, { bootstrap: { ...bootstrap, values } }))
+    )
+
+    expect(html).toBe("<p>b|true|1</p>")
+
+    const mira = createMira({ key: "mf_test", plugins: [flags({ bootstrap: { ...bootstrap, values } })] })
+
+    expect([mira.flag("new-checkout", false), mira.flag("hero", "a")]).toEqual(["b", true])
+    mira.destroy()
+  })
+
+  it("ignores a bootstrap older than 7 days, as sdk-browser does", async () => {
+    const stale = { ...bootstrap, at: Date.now() - 8 * 864e5 }
+
+    expect(
+      await renderToString(createSSRApp(Probe).use(createMiraPlugin(undefined, { bootstrap: stale })))
+    ).toBe("<p>false|a|1</p>")
+  })
+
+  it("lets a server render await the stand-in client", async () => {
+    const Awaiting = defineComponent({
+      async setup() {
+        // oxlint-disable-next-line typescript/await-thenable -- callers do this; it must not hang
+        const mira = await useMira()
+
+        return () => h("i", String(mira.flag("x", "fb")))
+      }
+    })
+
+    expect(await renderToString(createSSRApp(Awaiting).use(createMiraPlugin(undefined)))).toBe("<i>fb</i>")
+  })
+
   it("answers fallbacks and a stand-in client without a bootstrap", async () => {
     const Tracking = defineComponent({
       setup() {
@@ -135,10 +170,33 @@ describe("client", () => {
 
     expect(container.innerHTML).toBe("<p>true|c|5</p>")
 
-    load({ "new-checkout": [false], hero: [true] })
+    load({ "new-checkout": ["multi"], hero: [true] })
     await nextTick()
 
-    expect(container.innerHTML).toBe("<p>false|a|1</p>")
+    expect(container.innerHTML).toBe("<p>multi|true|1</p>")
+  })
+
+  it("follows the client outside a component and stops with its scope", async () => {
+    const { client, listeners, load } = fake({ "new-checkout": [true] })
+    const app = createApp(Probe).use(createMiraPlugin(client))
+    const warn = vi.spyOn(console, "warn")
+    const scope = effectScope()
+    const flag = app.runWithContext(() => scope.run(() => useFlag("new-checkout", false)))
+
+    expect(flag?.value).toBe(true)
+
+    load({ "new-checkout": [false] })
+
+    expect(flag?.value).toBe(false)
+
+    scope.stop()
+
+    const server = createSSRApp(Probe).use(createMiraPlugin(undefined, { bootstrap }))
+    const booted = server.runWithContext(() => effectScope().run(() => useFlag("new-checkout", false)))
+
+    expect(listeners.size).toBe(0)
+    expect(booted?.value).toBe(true)
+    expect(warn).not.toHaveBeenCalled()
   })
 
   it("updates when a real client loads newer flags", async () => {

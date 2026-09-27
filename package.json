@@ -62,7 +62,7 @@
   },
   "peerDependencies": {
     "@mirafive/sdk-browser": "^0.5.0",
-    "vue": "^3.4.0"
+    "vue": "^3.5.0"
   },
   "overrides": {
     "@mirafive/sdk-browser": "file:../sdk-browser"
