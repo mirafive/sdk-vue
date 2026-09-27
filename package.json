@@ -1,0 +1,86 @@
+{
+  "name": "@mirafive/sdk-vue",
+  "version": "0.5.0",
+  "description": "MIRA FIVE for Vue 3: a plugin and composables for privacy-first analytics and feature flags, SSR-safe.",
+  "keywords": [
+    "ab-testing",
+    "analytics",
+    "cookieless",
+    "feature-flags",
+    "gdpr",
+    "mirafive",
+    "privacy",
+    "vue"
+  ],
+  "homepage": "https://mirafive.io",
+  "bugs": {
+    "email": "support@mirafive.io"
+  },
+  "license": "MIT",
+  "author": "MIRA FIVE <support@mirafive.io>",
+  "repository": "github:mirafive/sdk-vue",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --type-aware --deny-warnings",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "size": "size-limit",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build && publint --strict && attw --pack --profile esm-only && size-limit"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@mirafive/sdk-browser": "file:../sdk-browser",
+    "@size-limit/preset-small-lib": "^14.0.1",
+    "@types/node": "^26.6.3",
+    "@vue/server-renderer": "^3.5.43",
+    "@vue/test-utils": "^2.5.1",
+    "happy-dom": "^20.14.5",
+    "oxfmt": "^0.70.0",
+    "oxlint": "^1.85.0",
+    "oxlint-tsgolint": "^7.0.2003",
+    "publint": "^0.3.24",
+    "size-limit": "^14.0.1",
+    "tsdown": "^0.23.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2",
+    "vue": "^3.5.43"
+  },
+  "peerDependencies": {
+    "@mirafive/sdk-browser": "^0.5.0",
+    "vue": "^3.4.0"
+  },
+  "overrides": {
+    "@mirafive/sdk-browser": "file:../sdk-browser"
+  },
+  "size-limit": [
+    {
+      "name": "index",
+      "path": "dist/index.js",
+      "import": "{ createMiraPlugin, useMira, useFlag, useFlagConfig }",
+      "ignore": [
+        "vue"
+      ],
+      "gzip": true,
+      "limit": "0.8 kB"
+    }
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "bun@1.4.2"
+}
