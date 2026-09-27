@@ -47,7 +47,7 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
-    "@mirafive/sdk-browser": "file:../sdk-browser",
+    "@mirafive/sdk-browser": "^1.0.0",
     "@size-limit/preset-small-lib": "^14.0.1",
     "@types/node": "^26.6.3",
     "@vue/server-renderer": "^3.5.43",
@@ -66,9 +66,6 @@
   "peerDependencies": {
     "@mirafive/sdk-browser": "^1.0.0",
     "vue": "^3.5.0"
-  },
-  "overrides": {
-    "@mirafive/sdk-browser": "file:../sdk-browser"
   },
   "size-limit": [
     {
