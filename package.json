@@ -3,10 +3,8 @@
   "version": "1.0.0",
   "description": "MIRA FIVE SDK for Vue",
   "keywords": [
-    "ab-testing",
     "analytics",
     "cookieless",
-    "feature-flags",
     "gdpr",
     "mirafive",
     "privacy",
@@ -71,7 +69,7 @@
     {
       "name": "index",
       "path": "dist/index.js",
-      "import": "{ createMiraPlugin, useMira, useFlag, useFlagConfig }",
+      "import": "{ createMiraPlugin, useMira }",
       "ignore": [
         "vue"
       ],

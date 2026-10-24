@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Breaking
+
+- Removed feature flags and A/B experiments: `useFlag()`, `useFlagConfig()`, the `FlagBootstrap`
+  type, the `MiraPluginOptions` type and the `bootstrap` option of `createMiraPlugin()`
+  (it now takes only the client). `createMiraPlugin()` and `useMira()` stay. The stand-in
+  client of a server render no longer has `onFlags`.
+- Statistics is the only consent purpose. A consent call that still passes `experiments` or
+  `targeting` is accepted and the keys are ignored.
+
 ## 1.0.0 — 2026-09-27
 
 First release on the v1 protocol, rebuilt from scratch as a thin layer over

@@ -1,238 +1,85 @@
-import type { Json, Mira } from "@mirafive/sdk-browser"
-import { createMira } from "@mirafive/sdk-browser"
-import { flags } from "@mirafive/sdk-browser/flags"
+import type { Mira } from "@mirafive/sdk-browser"
 import { renderToString } from "@vue/server-renderer"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { createApp, createSSRApp, defineComponent, effectScope, h, nextTick } from "vue"
+import { createApp, createSSRApp, defineComponent, h } from "vue"
 
-import { createMiraPlugin, useFlag, useFlagConfig, useMira } from "../src/index.ts"
+import { createMiraPlugin, useMira } from "../src/index.ts"
 
-type Answers = Record<string, readonly [string | boolean, Json?]>
+const fake = () => {
+  const client = { track: vi.fn(), destroy: vi.fn() }
 
-const bootstrap = {
-  v: 1 as const,
-  at: Date.now(),
-  values: { "new-checkout": ["on"], hero: ["b"], limits: ["pro", { max: 3 }] } as const
-}
-const block = `<script type="application/json" id="mirafive-flags">${JSON.stringify(bootstrap)}</script>`
-
-const Probe = defineComponent({
-  setup() {
-    const checkout = useFlag("new-checkout", false)
-    const hero = useFlag("hero", "a")
-    const limits = useFlagConfig("limits", { max: 1 })
-
-    return () => h("p", `${checkout.value}|${hero.value}|${limits.value.max}`)
-  }
-})
-
-const fake = (answers: Answers) => {
-  const listeners = new Set<() => void>()
-  let current = answers
-  const client = {
-    flag: (key: string, fallback: unknown) => current[key]?.[0] ?? fallback,
-    config: (key: string, fallback: unknown) => current[key]?.[1] ?? fallback,
-    onFlags: (listener: () => void) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    destroy: vi.fn()
-  }
-
-  return {
-    client: client as unknown as Mira,
-    listeners,
-    load: (next: Answers) => {
-      current = next
-      listeners.forEach((listener) => listener())
-    }
-  }
+  return { client: client as unknown as Mira, track: client.track, destroy: client.destroy }
 }
 
-const mountIn = (html = "") => {
+const mountIn = () => {
   const container = document.createElement("div")
 
-  container.innerHTML = html
   document.body.append(container)
 
   return container
 }
 
 afterEach(() => {
-  document.head.innerHTML = ""
   document.body.innerHTML = ""
   vi.restoreAllMocks()
-  vi.unstubAllGlobals()
 })
 
-describe("server render and hydration", () => {
-  it("renders the bootstrap on the server and hydrates to the same markup", async () => {
-    const html = await renderToString(
-      createSSRApp(Probe).use(createMiraPlugin(undefined, { bootstrap: block }))
-    )
-
-    expect(html).toBe("<p>true|b|3</p>")
-
-    document.head.innerHTML = block
-
-    const warn = vi.spyOn(console, "warn")
-    const { client } = fake({ "new-checkout": [false], hero: ["a"], limits: ["free", { max: 1 }] })
-    const container = mountIn(html)
-
-    createSSRApp(Probe).use(createMiraPlugin(client)).mount(container)
-
-    expect(container.innerHTML).toBe("<p>true|b|3</p>")
-    expect(warn.mock.calls.flat().join()).not.toMatch(/mismatch/i)
-
-    await nextTick()
-
-    expect(container.innerHTML).toBe("<p>false|a|1</p>")
-  })
-
-  it("hydrates a real client from the page's block without a change", async () => {
-    const html = await renderToString(createSSRApp(Probe).use(createMiraPlugin(undefined, { bootstrap })))
-
-    document.head.innerHTML = block
-
-    const mira = createMira({ key: "mf_test", plugins: [flags()] })
-    const container = mountIn(html)
-    const app = createSSRApp(Probe).use(createMiraPlugin(mira))
-
-    app.mount(container)
-    await nextTick()
-
-    expect(container.innerHTML).toBe("<p>true|b|3</p>")
-    app.unmount()
-  })
-
-  it("answers what sdk-browser answers: a variant even for a boolean fallback", async () => {
-    const values = { "new-checkout": ["b"], hero: ["on"] } as const
-    const html = await renderToString(
-      createSSRApp(Probe).use(createMiraPlugin(undefined, { bootstrap: { ...bootstrap, values } }))
-    )
-
-    expect(html).toBe("<p>b|true|1</p>")
-
-    const mira = createMira({ key: "mf_test", plugins: [flags({ bootstrap: { ...bootstrap, values } })] })
-
-    expect([mira.flag("new-checkout", false), mira.flag("hero", "a")]).toEqual(["b", true])
-    mira.destroy()
-  })
-
-  it("ignores a bootstrap older than 7 days, as sdk-browser does", async () => {
-    const stale = { ...bootstrap, at: Date.now() - 8 * 864e5 }
-
-    expect(
-      await renderToString(createSSRApp(Probe).use(createMiraPlugin(undefined, { bootstrap: stale })))
-    ).toBe("<p>false|a|1</p>")
-  })
-
+describe("server render", () => {
   it("lets a server render await the stand-in client", async () => {
     const Awaiting = defineComponent({
       async setup() {
         // oxlint-disable-next-line typescript/await-thenable -- callers do this; it must not hang
         const mira = await useMira()
 
-        return () => h("i", String(mira.flag("x", "fb")))
+        return () => h("i", mira.config("x", "fb"))
       }
     })
 
     expect(await renderToString(createSSRApp(Awaiting).use(createMiraPlugin(undefined)))).toBe("<i>fb</i>")
   })
 
-  it("answers fallbacks and a stand-in client without a bootstrap", async () => {
+  it("gives a stand-in client whose calls do nothing", async () => {
     const Tracking = defineComponent({
       setup() {
         const mira = useMira()
 
         mira.track("rendered")
 
-        return () => h("i", `${String(mira.flag("x", "fb"))}|${String(mira.anonymousId())}`)
+        return () => h("i", String(mira.anonymousId()))
       }
     })
 
-    expect(await renderToString(createSSRApp(Probe).use(createMiraPlugin(undefined)))).toBe(
-      "<p>false|a|1</p>"
-    )
     expect(await renderToString(createSSRApp(Tracking).use(createMiraPlugin(undefined)))).toBe(
-      "<i>fb|undefined</i>"
+      "<i>undefined</i>"
     )
   })
 })
 
 describe("client", () => {
-  it("starts from the client's answers and follows flag loads", async () => {
-    const { client, load } = fake({ "new-checkout": [true], hero: ["c"], limits: ["pro", { max: 5 }] })
-    const container = mountIn()
+  it("returns the client from useMira", () => {
+    const { client } = fake()
+    let seen: unknown
+    const Reader = defineComponent({
+      setup() {
+        seen = useMira()
 
-    createApp(Probe).use(createMiraPlugin(client)).mount(container)
+        return () => h("i")
+      }
+    })
 
-    expect(container.innerHTML).toBe("<p>true|c|5</p>")
+    createApp(Reader).use(createMiraPlugin(client)).mount(mountIn())
 
-    load({ "new-checkout": ["multi"], hero: [true] })
-    await nextTick()
-
-    expect(container.innerHTML).toBe("<p>multi|true|1</p>")
+    expect(seen).toBe(client)
   })
 
-  it("follows the client outside a component and stops with its scope", async () => {
-    const { client, listeners, load } = fake({ "new-checkout": [true] })
-    const app = createApp(Probe).use(createMiraPlugin(client))
-    const warn = vi.spyOn(console, "warn")
-    const scope = effectScope()
-    const flag = app.runWithContext(() => scope.run(() => useFlag("new-checkout", false)))
-
-    expect(flag?.value).toBe(true)
-
-    load({ "new-checkout": [false] })
-
-    expect(flag?.value).toBe(false)
-
-    scope.stop()
-
-    const server = createSSRApp(Probe).use(createMiraPlugin(undefined, { bootstrap }))
-    const booted = server.runWithContext(() => effectScope().run(() => useFlag("new-checkout", false)))
-
-    expect(listeners.size).toBe(0)
-    expect(booted?.value).toBe(true)
-    expect(warn).not.toHaveBeenCalled()
-  })
-
-  it("updates when a real client loads newer flags", async () => {
-    document.head.innerHTML = block.replace(/"at":\d+/, `"at":${Date.now() - 120_000}`)
-
-    const fetch = vi.fn(
-      async () => new Response(JSON.stringify({ v: 1, at: Date.now(), values: { "new-checkout": ["off"] } }))
-    )
-
-    vi.stubGlobal("fetch", fetch)
-
-    const mira = createMira({ key: "mf_test", plugins: [flags()] })
-    const container = mountIn()
-    const app = createApp(Probe).use(createMiraPlugin(mira))
-
-    app.mount(container)
-
-    expect(container.innerHTML).toBe("<p>true|b|3</p>")
-
-    await vi.waitFor(() => expect(container.innerHTML).toBe("<p>false|a|1</p>"))
-    expect(fetch).toHaveBeenCalledOnce()
-    app.unmount()
-  })
-
-  it("removes its listeners and destroys the client on unmount", () => {
-    const { client, listeners } = fake({})
-    const app = createApp(Probe).use(createMiraPlugin(client))
+  it("destroys the client on unmount", () => {
+    const { client, destroy } = fake()
+    const app = createApp(defineComponent({ render: () => h("i") })).use(createMiraPlugin(client))
 
     app.mount(mountIn())
-
-    expect(listeners.size).toBe(3)
-
     app.unmount()
 
-    expect(listeners.size).toBe(0)
-    expect(client.destroy).toHaveBeenCalledOnce()
+    expect(destroy).toHaveBeenCalledOnce()
   })
 
   it("throws a setup hint without the plugin", () => {
