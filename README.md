@@ -55,8 +55,10 @@ const mira = useMira()
 `pageviews()` follows Vue Router (and any other router) through the History and
 Navigation APIs; do not add pageview calls to router hooks.
 
+For revenue, add `payment_id` (1–255 characters) to the properties next to `revenue` and `currency`: the payment provider's id of the payment. For Stripe pass the Checkout Session id on the success page or the PaymentIntent id from a webhook, for example `mira.track("order completed", { revenue: 49, currency: "EUR", payment_id: sessionId })`. MIRA FIVE merges the event with the payment it imports from your connected Stripe account, so the sale counts once.
+
 Verify it: open the site (not `localhost`, or pass `trackLocalhost: true` to
-`createMira`) and look for `POST https://events.mirafive.io/v1/batch/mf_…` answering
+`createMira`) and look for `POST https://collect.mirafive.io/v1/batch/mf_…` answering
 `202` in the network tab, then for the pageview in the source's live view in MIRA FIVE.
 
 ## Consent & privacy
@@ -121,7 +123,7 @@ Add MIRA FIVE analytics to this Vue 3 app with @mirafive/sdk-vue.
    manager: add identity() from "@mirafive/sdk-browser/identity", pass mode: "full", and
    call mira.consent({ statistics }) from its callback.
 6. Verify: load a page (not localhost, or trackLocalhost: true) and check the network tab
-   for POST https://events.mirafive.io/v1/batch/<key> answering 202; report what you changed.
+   for POST https://collect.mirafive.io/v1/batch/<key> answering 202; report what you changed.
 Do not add other analytics libraries, cookies or consent banners.
 ```
 
