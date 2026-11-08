@@ -1,21 +1,23 @@
 {
-  "name": "@mirafive/sdk-vue",
-  "version": "1.0.0",
-  "description": "MIRA FIVE SDK for Vue",
+  "name": "@mirafive/vue",
+  "version": "2.0.0",
+  "description": "MIRA FIVE for Vue 3: a plugin, useMira() and useIdentify() over @mirafive/web. SSR-safe, no dependencies beyond MIRA FIVE's own.",
   "keywords": [
     "analytics",
-    "cookieless",
-    "gdpr",
+    "attribution",
+    "consent",
+    "mira-five",
     "mirafive",
-    "privacy",
-    "vue"
+    "plugin",
+    "vue",
+    "vue3"
   ],
-  "homepage": "https://mirafive.io",
+  "homepage": "https://github.com/mirafive/sdk-vue#readme",
   "bugs": {
-    "email": "support@mirafive.io"
+    "url": "https://github.com/mirafive/sdk-vue/issues"
   },
   "license": "MIT",
-  "author": "MIRA FIVE <support@mirafive.io>",
+  "author": "Cloo GmbH <hallo@mirafive.io> (https://mirafive.io)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mirafive/sdk-vue.git"
@@ -25,60 +27,41 @@
   ],
   "type": "module",
   "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
-    "build": "tsdown",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "lint": "oxlint --type-aware --deny-warnings",
+    "build": "bun run build.ts",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "size": "size-limit",
-    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build && publint --strict && attw --pack --profile esm-only && size-limit",
-    "prepublishOnly": "bun run check"
+    "lint": "oxlint",
+    "test": "bun test",
+    "typecheck": "bun check"
+  },
+  "dependencies": {
+    "@mirafive/web": "^2.0.0"
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "^0.18.5",
-    "@mirafive/sdk-browser": "^1.0.0",
-    "@size-limit/preset-small-lib": "^14.3.0",
-    "@types/node": "^26.6.5",
-    "@vue/server-renderer": "^3.5.44",
-    "@vue/test-utils": "^2.5.1",
-    "happy-dom": "^21.0.4",
-    "oxfmt": "^0.74.0",
-    "oxlint": "^1.89.0",
-    "oxlint-tsgolint": "^7.0.2005",
-    "publint": "^0.3.25",
-    "size-limit": "^14.3.0",
-    "tsdown": "0.23.1",
+    "@types/bun": "^1.4.4",
+    "oxfmt": "^0.77.0",
+    "oxlint": "^1.92.0",
+    "oxlint-tsgolint": "^7.0.2006",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5",
-    "vue": "^3.5.44"
+    "vue": "^3.5.45"
   },
   "peerDependencies": {
-    "@mirafive/sdk-browser": "^1.0.0",
-    "vue": "^3.5.0"
-  },
-  "size-limit": [
-    {
-      "name": "index",
-      "path": "dist/index.js",
-      "import": "{ createMiraPlugin, useMira }",
-      "ignore": [
-        "vue"
-      ],
-      "gzip": true,
-      "limit": "0.8 kB"
-    }
-  ],
-  "engines": {
-    "node": ">=20"
+    "vue": ">=3.3"
   },
   "packageManager": "bun@1.4.4"
 }

@@ -1,38 +1,31 @@
-# Agents working in mirafive/sdk-vue
+# Working on @mirafive/vue
 
-`@mirafive/sdk-vue`: the Vue 3 plugin and composables around `@mirafive/sdk-browser`.
-Part of the MIRA FIVE SDK family; the wire contract and public API live
-in [mirafive/protocol](https://github.com/mirafive/protocol) (PROTOCOL.md, API.md).
+Part of the MIRA FIVE SDKs (github.com/mirafive). Read README.md for what the package does.
 
 ## Commands
 
 ```sh
-bun install --frozen-lockfile
-bun run check            # format, lint, typecheck, test, build, publint, attw, size-limit
-bun run test             # vitest (happy-dom, @vue/server-renderer)
-bun run size             # size-limit against the limit in package.json (0.8 kB, peers excluded)
+bun install
+bun run check     # format, lint, types, tests, build: exactly what CI runs
+bun test          # tests only
+bun run build     # dist/
 ```
+
+CI also packs the package, installs it into a fresh app, type-checks it under `bundler` and
+`nodenext` resolution and loads it in Node (mirafive/.github, scripts/verify-package.ts).
 
 ## Rules
 
-- API.md is the contract for this package's public surface. Do not add, rename or
-  remove exports without changing API.md first.
-- Thin by design: no transport, no pageview logic. Pageviews come from
-  sdk-browser's `pageviews()` plugin (it covers Vue Router); never add router hooks.
-- sdk-browser is imported for types only; the built `dist/index.js` imports nothing but
-  `vue`. Keep it that way.
-- Bundle size is the headline goal (≤ 0.8 kB min+gzip). A change that grows it explains
-  why. No runtime dependencies without approval.
-- `context.sdk` stays what sdk-browser reports; framework packages add no token.
-- A secret key never reaches browser code.
-- Comments only for a non-obvious constraint, one or two lines.
-- Do not run git write commands unless asked; the maintainer commits.
-
-## Local development
-
-`@mirafive/sdk-browser` is an ordinary `^1.0.0` dependency from npm. To try an unreleased change,
-build the sibling repo and `bun link` it; never commit a `file:` path or `overrides`.
+- No runtime dependencies besides other `@mirafive/*` packages; frameworks are peers.
+- Event methods never throw into the host and never block it: report problems instead.
+- A secret key (`mira_sk_…`) never reaches browser code; a public key (`mira_pk_…`) is refused
+  on the server.
+- What goes on the wire is defined by `@mirafive/protocol`; tests check events with its
+  `validateEvent`.
+- Tests for every change. Comments explain why, briefly. Conventional Commits.
 
 ## Releasing
 
-To release, bump `version` in `package.json` (and any SDK version constant), add a `## X.Y.Z — YYYY-MM-DD` section to `CHANGELOG.md`, commit, then `git tag vX.Y.Z && git push origin vX.Y.Z`. `.github/workflows/release.yml` checks both, runs `bun run check`, stages it on npm through trusted publishing (no token) and creates the GitHub release from the changelog section. The version goes live only after a maintainer approves it with 2FA on npmjs.com (`npm stage approve`). Never `npm publish` from a laptop.
+Bump `version` in package.json, add a `## x.y.z — YYYY-MM-DD` section to
+CHANGELOG.md, and merge to main: the release workflow publishes to npm with provenance, tags
+`vx.y.z` and creates the GitHub release. Never publish from a laptop.

@@ -1,150 +1,77 @@
-# @mirafive/sdk-vue
+# @mirafive/vue
 
-MIRA FIVE for Vue 3: a plugin and a composable around `@mirafive/sdk-browser`.
-Privacy-first analytics from MIRA FIVE, hosted in the EU.
-
-## Size
-
-| Import | min + gzip |
-|---|---|
-| `@mirafive/sdk-vue` (`createMiraPlugin`, `useMira`) | 0.26 kB |
-
-Vue and `@mirafive/sdk-browser` are peers and not counted; the browser SDK's own sizes
-are in its README (core with pageviews 2.31 kB). What you do not import is not shipped
-(`sideEffects: false`). This package has no transport: it hands
-you the client you created.
+MIRA FIVE for Vue 3: consent-aware analytics and revenue attribution as a plugin, with
+`useMira()`, `useIdentify()` and `$mira` in templates. Built on
+[`@mirafive/web`](https://github.com/mirafive/sdk-web), which follows your consent banner and
+captures pageviews (also on client-side navigation) on its own. Safe for server rendering; no
+dependencies besides MIRA FIVE's own. On Nuxt, use
+[`@mirafive/nuxt`](https://github.com/mirafive/sdk-nuxt).
 
 ## Install
 
 ```sh
-npm install @mirafive/sdk-vue @mirafive/sdk-browser
-# or: bun add / pnpm add / yarn add
+npm install @mirafive/vue   # or: bun add, pnpm add, yarn add
 ```
-
-Peers: `vue` ≥ 3.5, `@mirafive/sdk-browser` ^1.0.0. ESM only. On Nuxt use
-`@mirafive/sdk-nuxt`, which wires all of this for you.
 
 ## Quickstart
 
 ```ts
 // main.ts
-import { createMira } from "@mirafive/sdk-browser"
-import { pageviews } from "@mirafive/sdk-browser/pageviews"
-import { createMiraPlugin } from "@mirafive/sdk-vue"
-import { createApp } from "vue"
+import { createMiraPlugin } from "@mirafive/vue";
 
-import App from "./App.vue"
-
-const mira = createMira({ key: import.meta.env.VITE_MIRAFIVE_KEY, plugins: [pageviews()] })
-
-createApp(App).use(createMiraPlugin(mira)).mount("#app")
+createApp(App)
+  .use(createMiraPlugin({ key: import.meta.env.VITE_MIRAFIVE_KEY }))
+  .mount("#app");
 ```
 
 ```vue
 <script setup lang="ts">
-import { useMira } from "@mirafive/sdk-vue"
+import { useIdentify, useMira } from "@mirafive/vue";
 
-const mira = useMira()
+const mira = useMira();
+const session = useSession();
+// Identifies on sign-in, resets on sign-out.
+useIdentify(
+  () => session.value?.user.id,
+  () => ({ plan: session.value?.user.plan }),
+);
 </script>
 
 <template>
-  <button @click="mira.track('checkout started')">Checkout</button>
+  <button @click="mira.track('signup_started', { plan: 'pro' })">Sign up</button>
+  <a href="/pricing" @click="$mira.track('pricing_clicked')">Pricing</a>
 </template>
 ```
 
-`pageviews()` follows Vue Router (and any other router) through the History and
-Navigation APIs; do not add pageview calls to router hooks.
+## API
 
-For revenue, add `payment_id` (1–255 characters) to the properties next to `revenue` and `currency`: the payment provider's id of the payment. For Stripe pass the Checkout Session id on the success page or the PaymentIntent id from a webhook, for example `mira.track("order completed", { revenue: 49, currency: "EUR", payment_id: sessionId })`. MIRA FIVE merges the event with the payment it imports from your connected Stripe account, so the sale counts once.
+| Export                                    | What it does                                                                                                                                                                                              |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createMiraPlugin(options \| { client })` | The plugin. Takes every `@mirafive/web` option (`key`, `host`, `consent`, `autocapture`, `adapters`, `debug`), or a client you made with `createMira()`. The client starts in the browser, once per page. |
+| `useMira<Events>()`                       | The client. On a server or without the plugin, a stand-in that does nothing.                                                                                                                              |
+| `useIdentify(userId, traits?)`            | Refs or getters. `identify` when the id appears or changes, `reset` when it goes away.                                                                                                                    |
+| `$mira`                                   | The client in templates.                                                                                                                                                                                  |
 
-Verify it: open the site (not `localhost`, or pass `trackLocalhost: true` to
-`createMira`) and look for `POST https://collect.mirafive.io/v1/batch/mf_…` answering
-`202` in the network tab, then for the pageview in the source's live view in MIRA FIVE.
+## For AI coding assistants
 
-## Consent & privacy
+Rules for integrating MIRA FIVE correctly. They hold for every MIRA FIVE SDK.
 
-- Default mode: `consentless` (the browser SDK's default). No cookies, no storage, no ids,
-  no language, time zone or screen size; it needs no consent banner.
-- `mode: "full"` adds ids and needs `identity()` in `plugins` and a consent answer from
-  your consent manager: `useMira().consent({ statistics })`.
-  Before the answer nothing is sent or stored.
-- Statistics is the only consent purpose. The old `experiments` and `targeting` keys are accepted and ignored.
-- Do Not Track, Global Privacy Control, `window.__mirafive_ignore` and prerendering send
-  nothing (handled by `@mirafive/sdk-browser`).
-- This package stores and reads nothing.
-
-## API reference
-
-```ts
-import { createMiraPlugin, useMira } from "@mirafive/sdk-vue"
-import type { Json, Mira } from "@mirafive/sdk-vue"
-```
-
-| Export | |
-|---|---|
-| `createMiraPlugin(client)` | the Vue plugin: `app.use(createMiraPlugin(mira))`. `client` is a `createMira()` client, or `undefined` on a server. `app.unmount()` destroys the client. |
-| `useMira<Events>(): Mira<Events>` | the client. During a server render a stand-in whose members do nothing and whose reads answer the fallback (not a thenable, so `await` is safe). Throws when the plugin is not installed. |
-
-## Framework / runtime notes
-
-- **SSR.** On the server there is no client: install `createMiraPlugin(undefined)`. The
-  composable then returns the stand-in, so a server render sends nothing.
-- Create the client in the browser only (`createMira` needs `window`), once per page.
-- Outside components (Pinia stores, composables run in `app.runWithContext`), `useMira()` works the same.
-- Typed events: `useMira<{ signup: { plan: string } }>().track("signup", { plan: "pro" })`.
-
-## Troubleshooting
-
-| Symptom | Cause and fix |
-|---|---|
-| Nothing arrives | On `localhost` pass `trackLocalhost: true` to `createMira`; check Do Not Track / GPC; in mode `"full"` a `consent(…)` call must have run; check `host`. |
-| `403 secret_key_in_path` / `website_key_as_bearer` | You passed a secret key to the browser. Use the website key (`mf_…`). |
-| `403 origin_not_allowed` | Add the site's origin to the source's allowed origins in MIRA FIVE. |
-| `[mirafive] install the plugin first` | `app.use(createMiraPlugin(mira))` is missing, or `useMira()` ran outside a component or `app.runWithContext`. |
-
-## For AI agents
-
-Copy-paste setup prompt:
-
-```text
-Add MIRA FIVE analytics to this Vue 3 app with @mirafive/sdk-vue.
-1. Install @mirafive/sdk-vue and @mirafive/sdk-browser with the project's package manager.
-2. Put the source's website key in VITE_MIRAFIVE_KEY (public). Never use MIRAFIVE_SECRET_KEY
-   in browser code.
-3. In the client entry (main.ts), before mount:
-     import { createMira } from "@mirafive/sdk-browser"
-     import { pageviews } from "@mirafive/sdk-browser/pageviews"
-     import { createMiraPlugin } from "@mirafive/sdk-vue"
-     const mira = createMira({ key: import.meta.env.VITE_MIRAFIVE_KEY, plugins: [pageviews()] })
-     app.use(createMiraPlugin(mira))
-   Do not add pageview calls to router hooks.
-4. In components: const mira = useMira(); mira.track("name", { … }) in handlers.
-5. Keep the default consentless mode: it needs no banner. Only with an existing consent
-   manager: add identity() from "@mirafive/sdk-browser/identity", pass mode: "full", and
-   call mira.consent({ statistics }) from its callback.
-6. Verify: load a page (not localhost, or trackLocalhost: true) and check the network tab
-   for POST https://collect.mirafive.io/v1/batch/<key> answering 202; report what you changed.
-Do not add other analytics libraries, cookies or consent banners.
-```
-
-Facts for agents:
-
-- Imports: `import { createMiraPlugin, useMira } from "@mirafive/sdk-vue"`;
-  the client from `import { createMira } from "@mirafive/sdk-browser"` and plugins from
-  `@mirafive/sdk-browser/pageviews`, `/identity`, `/autocapture`, and `/search`. No default exports.
-- Env vars: `VITE_MIRAFIVE_KEY` (the public website key, passed as `key`); a custom host
-  is passed as `createMira({ host })`. `MIRAFIVE_SECRET_KEY` only in server code with
-  `@mirafive/sdk-server`.
-- A secret key must never reach the browser bundle; `createMira` throws for a `secretKey`
-  option and the server refuses a secret key in a URL.
-- Consentless (default) needs no banner and stores nothing. `mode: "full"` needs
-  `identity()` and a `consent(…)` call behind the site's consent manager (CMP).
-- SSR: `createMiraPlugin(undefined)` on the server.
-- Nothing throws for transport reasons; the browser SDK warns once on local hosts.
-- Verify an install: `POST …/v1/batch/{key}` answers `202 { "accepted": n }` in the
-  network tab, and the event shows in the source's live view.
-- Wire contract: [mirafive/protocol](https://github.com/mirafive/protocol).
-
-## License
-
-[MIT](LICENSE) © 2026 Cloo GmbH
+- **Keys:** the public key (`mira_pk_…`) goes in browser and app code. The secret key (`mira_sk_…`)
+  goes only into the server's environment (`MIRAFIVE_SECRET_KEY`), never into client code, a
+  `NEXT_PUBLIC_`/`VITE_`/`PUBLIC_` variable or a repository. The SDKs refuse the wrong key.
+- **Money** is sent only from the server: integer minor units plus an ISO 4217 currency
+  (`amount: 1999, currency: "EUR"` is 19.99 EUR), never floats.
+- **Count once:** give money an `entryId` from the payment provider (`stripe:in_123`), so the
+  Stripe connector and retries do not double it. Give business events a stable id:
+  `eventId: await eventIdFor("order:123:paid")`. The same key gives the same id in every SDK.
+- **Personal data** never goes into event names or properties. Use your own user id (not an email)
+  for `identify`; put email, name and phone in its traits, which MIRA FIVE encrypts at rest.
+- **Consent:** keep `consent: "auto"`; it follows the site's consent banner (Usercentrics,
+  Cookiebot, consentmanager, CCM19, Borlabs, any TCF 2.2 CMP, Google Consent Mode). Call
+  `consent()` only for a custom banner. Do not gate the SDK behind consent yourself: without
+  consent it is cookieless and still counts.
+- **Never block on analytics:** event methods return nothing, never throw, and batch on their
+  own. Do not `await` or `try` them. Call `flush()`/`shutdown()` only at the end of a script or a
+  serverless function.
+- **Server events and visitors:** pass the browser's `mira.anonymousId` to your server and set it
+  as `anonymousId` on server events, so a purchase joins the visit and its source.
