@@ -1,6 +1,6 @@
 {
   "name": "@mirafive/vue",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "MIRA FIVE for Vue 3: a plugin, useMira() and useIdentify() over @mirafive/web. SSR-safe, no dependencies beyond MIRA FIVE's own.",
   "keywords": [
     "analytics",
@@ -50,7 +50,7 @@
     "typecheck": "bun check"
   },
   "dependencies": {
-    "@mirafive/web": "^2.0.2"
+    "@mirafive/web": "^2.0.3"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
